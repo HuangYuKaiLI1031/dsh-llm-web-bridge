@@ -1,7 +1,7 @@
-# dsh-web-llm-bridge
+# dsh-llm-web-bridge
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/npm/v/dsh-web-llm-bridge)
+![Version](https://img.shields.io/npm/v/dsh-llm-web-bridge)
 
 **DSH（DeepSeek Harness）Web 插件**：把第三方**网页版**大模型（Gemini、ChatGPT、豆包、自定义站点）接入你的 agent 工作流——通过真实浏览器驱动，而非 API。
 
@@ -24,6 +24,12 @@
 | 健康检测 | 会话失效自动探测 + 面板状态栏 + 重新连接 |
 | 结束符机制 | 提示词要求模型输出"回答完成，请检查。"，可靠取回完整回复 |
 
+## 截图
+
+![Gemini 自定义角色对话](docs/screenshot-gemini.png)
+
+> 上图：Gemini 中使用自定义角色"诗人"生成的对话。插件面板位于输入框上方，支持文字记录 / 实时画面切换、站点选择、健康状态栏与配置入口。
+
 ## 安装
 
 ```bash
@@ -40,7 +46,7 @@ PLAYWRIGHT_BROWSERS_PATH=<BASE>/.pw-browsers <BASE>/.venv/bin/playwright install
 
 # 4. 安装插件到 DSH web profile
 cd ~/.dsh/profiles/web
-dsh plugin --profile web add dsh-web-llm-bridge
+dsh plugin --profile web add dsh-llm-web-bridge
 # 或本地: dsh plugin --profile web add "link:<本插件路径>"
 # 重启 dsh web
 ```
@@ -128,12 +134,14 @@ lib/adapters/
 ## 文件布局
 
 ```
-dsh-web-llm-bridge/
-├── package.json / cordis.patch.yml / LICENSE / README.md
+dsh-llm-web-bridge/
+├── package.json / cordis.patch.yml / LICENSE / README.md / CHANGELOG.md
+├── .github/               # Issue/PR 模板 + CI
+├── docs/                  # 截图等文档资源
 ├── lib/
 │   ├── index.js       # Host：API + consult_llm + 守护管理 + Xvfb
-│   ├── client.js      # Client：面板（记录/实时/状态栏/配置）
-│   └── adapters/      # 站点适配器
+│   ├── client.js      # Client：面板（记录/实时/状态栏/配置/角色）
+│   └── adapters/      # 站点适配器（gemini/chatgpt/doubao/generic）
 └── daemon/
     └── browser_daemon_webllm.py  # 浏览器守护（headless/headed）
 ```

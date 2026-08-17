@@ -1,5 +1,5 @@
 {
-  "name": "dsh-web-llm-bridge",
+  "name": "dsh-llm-web-bridge",
   "version": "0.1.0",
   "description": "DSH web plugin: bridge to third-party web LLMs (Gemini, ChatGPT, Doubao, custom) — agent-driven consult_llm tool, text-log primary UI with on-demand live view, headed/headless browser daemon.",
   "type": "module",
