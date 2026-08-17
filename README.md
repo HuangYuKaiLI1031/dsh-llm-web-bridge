@@ -1,7 +1,12 @@
 # dsh-llm-web-bridge
 
-![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/npm/v/dsh-llm-web-bridge)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/dsh-llm-web-bridge.svg)](https://www.npmjs.com/package/dsh-llm-web-bridge)
+[![GitHub stars](https://img.shields.io/github/stars/HuangYuKaiLI1031/dsh-llm-web-bridge?style=social)](https://github.com/HuangYuKaiLI1031/dsh-llm-web-bridge)
+[![CI](https://github.com/HuangYuKaiLI1031/dsh-llm-web-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/HuangYuKaiLI1031/dsh-llm-web-bridge/actions)
+[![Platform](https://img.shields.io/badge/platform-DeepSeek%20Harness-blue.svg)](https://github.com/deepseek-ai/deepseek-harness)
+[![Web LLMs](https://img.shields.io/badge/web%20LLMs-Gemini%20%7C%20ChatGPT%20%7C%20Doubao-orange.svg)](#站点适配器)
+[![Made with](https://img.shields.io/badge/made%20with-Playwright%20%7C%20Xvfb-8A2BE2.svg)](daemon/browser_daemon_webllm.py)
 
 **DSH（DeepSeek Harness）Web 插件**：把第三方**网页版**大模型（Gemini、ChatGPT、豆包、自定义站点）接入你的 agent 工作流——通过真实浏览器驱动，而非 API。
 
