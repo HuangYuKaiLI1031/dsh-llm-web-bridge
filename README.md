@@ -29,12 +29,6 @@
 | 健康检测 | 会话失效自动探测 + 面板状态栏 + 重新连接 |
 | 结束符机制 | 提示词要求模型输出"回答完成，请检查。"，可靠取回完整回复 |
 
-## 截图
-
-![Gemini 自定义角色对话](docs/screenshot-gemini.png)
-
-> 上图：Gemini 中使用自定义角色"诗人"生成的对话。插件面板位于输入框上方，支持文字记录 / 实时画面切换、站点选择、健康状态栏与配置入口。
-
 ## 安装
 
 ```bash
@@ -206,7 +200,6 @@ lib/adapters/
 dsh-llm-web-bridge/
 ├── package.json / cordis.patch.yml / LICENSE / README.md / CHANGELOG.md
 ├── .github/               # Issue/PR 模板 + CI
-├── docs/                  # 截图等文档资源
 ├── lib/
 │   ├── index.js       # Host：API + consult_llm + 守护管理 + Xvfb
 │   ├── client.js      # Client：面板（记录/实时/状态栏/配置/角色）
