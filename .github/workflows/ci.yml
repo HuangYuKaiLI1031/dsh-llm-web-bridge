@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: JS syntax check
+        run: npm run check
+
+      - name: Python syntax check
+        run: python -c "import ast; ast.parse(open('daemon/browser_daemon_webllm.py').read())"
+
+      - name: Package check
+        run: |
+          npm pack --dry-run
+          echo "package is publishable"
