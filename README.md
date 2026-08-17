@@ -96,12 +96,46 @@ dsh plugin --profile web add dsh-llm-web-bridge
 
 ### 2. 融入 agent 工作流（核心用法）
 
-`consult_llm` 是全局工具，**agent 在对话中可自动调用**。典型场景：
+`consult_llm` 是**全局工具**，注册在 agent 的工具列表里。有两种触发方式：
 
-**代码审查**——让主 agent 审查你项目里的文件：
+#### 触发方式 A：agent 自动调用
+
+主 agent 判断需要"外援"时自动调用（独立审核、交叉验证、代码审查等场景）。你**不需要做任何事**——只要在对话里提出需求，agent 会自行决定调用：
 
 ```
 用户：审查一下 src/utils.ts 的这段代码有没有问题
+→ agent 判断需要外援 → 自动调用 consult_llm { ... }
+```
+
+#### 触发方式 B：显式指定（推荐，可控性更高）
+
+在对话中**明确要求**使用网页 LLM，并可用 `role` 指定角色。agent 会把你的话翻译成工具调用：
+
+```
+用户：用 Gemini 的代码审查角色看看这段代码
+→ agent 调用 consult_llm { provider: "gemini", role: "code-review", ... }
+
+用户：让网页 LLM 从红队角度挑战这个结论
+→ agent 调用 consult_llm { role: "adversary", ... }
+```
+
+#### 指定角色的方式
+
+角色通过 `consult_llm` 的 **`role` 参数**传入，两种途径：
+
+1. **对话里说**（agent 帮你填）：
+   - "用**翻译**角色翻译这段" → `role: "translator"`
+   - "**红队挑战**一下这个方案" → `role: "adversary"`
+2. **工具参数直接写**（如果你直接操作工具）：
+   - `role: "code-review"` / `"review"` / `"translator"` / `"adversary"` / `"reasoner"` / `"editor"` / 自定义角色名
+   - **留空 = 自由对话**（不套角色）
+
+> 💡 提示：想让 agent **总是**用某个角色，就在需求里说清楚，例如"每次审查代码都用 code-review 角色"。
+
+**代码审查**完整示例：
+
+```
+用户：审查一下 src/utils.ts 的这段代码，用代码审查角色
 agent → 调用 consult_llm {
   provider: "gemini",
   role: "code-review",
