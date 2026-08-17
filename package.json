@@ -9,7 +9,12 @@
     "./client": "./lib/client.js",
     "./package.json": "./package.json"
   },
-  "files": ["lib", "daemon", "cordis.patch.yml", "README.md"],
+  "files": [
+    "lib",
+    "daemon",
+    "cordis.patch.yml",
+    "README.md"
+  ],
   "keywords": [
     "deepseek",
     "deepseek-harness",
@@ -23,10 +28,14 @@
     "web-llm"
   ],
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
-      "inject": ["@deepseek-ai/dsh-client-runtime"]
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ]
     }
   },
   "scripts": {
@@ -35,10 +44,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YOUR_GITHUB_USERNAME/dsh-web-llm-bridge.git"
+    "url": "git+https://github.com/HuangYuKaiLI1031/dsh-llm-web-bridge.git"
   },
   "bugs": {
-    "url": "https://github.com/YOUR_GITHUB_USERNAME/dsh-web-llm-bridge/issues"
+    "url": "https://github.com/HuangYuKaiLI1031/dsh-llm-web-bridge/issues"
   },
-  "homepage": "https://github.com/YOUR_GITHUB_USERNAME/dsh-web-llm-bridge#readme"
+  "homepage": "https://github.com/HuangYuKaiLI1031/dsh-llm-web-bridge#readme"
 }
