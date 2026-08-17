@@ -1,0 +1,44 @@
+{
+  "name": "dsh-web-llm-bridge",
+  "version": "0.1.0",
+  "description": "DSH web plugin: bridge to third-party web LLMs (Gemini, ChatGPT, Doubao, custom) — agent-driven consult_llm tool, text-log primary UI with on-demand live view, headed/headless browser daemon.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["lib", "daemon", "cordis.patch.yml", "README.md"],
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "llm",
+    "gemini",
+    "chatgpt",
+    "browser",
+    "automation",
+    "web-llm"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-runtime"]
+    }
+  },
+  "scripts": {
+    "check": "node --check lib/index.js && node --check lib/client.js && node --check lib/adapters/index.js && node --check lib/adapters/gemini.js && node --check lib/adapters/chatgpt.js && node --check lib/adapters/doubao.js && node --check lib/adapters/generic.js"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR_GITHUB_USERNAME/dsh-web-llm-bridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YOUR_GITHUB_USERNAME/dsh-web-llm-bridge/issues"
+  },
+  "homepage": "https://github.com/YOUR_GITHUB_USERNAME/dsh-web-llm-bridge#readme"
+}

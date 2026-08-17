@@ -1,0 +1,4 @@
+# dsh-web-llm-bridge bundle patch
+- insert:
+    - id: web-llm-bridge
+      name: 'dsh-web-llm-bridge'

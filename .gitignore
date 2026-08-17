@@ -1,0 +1,25 @@
+# ── runtime data (NEVER commit: contains your cookies/sessions) ──
+cookies_*.json
+storage_state_*.json
+auth_status_*.json
+health_status.json
+chat_log_*.jsonl
+commands_*.json
+replies_*.json
+live_frame_*.jpg
+*.tsv
+site_meta.json
+
+# ── local runtime directories ──
+.venv/
+.pw-browsers/
+.fonts/
+node_modules/
+*.log
+
+# ── OS / editor ──
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
