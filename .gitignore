@@ -16,6 +16,9 @@ site_meta.json
 .fonts/
 node_modules/
 *.log
+__pycache__/
+*.pyc
+*.tgz
 
 # ── OS / editor ──
 .DS_Store

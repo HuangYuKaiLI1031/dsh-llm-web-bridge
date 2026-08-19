@@ -1,7 +1,7 @@
 {
   "name": "dsh-llm-web-bridge",
-  "version": "0.1.0",
-  "description": "DSH web plugin: bridge to third-party web LLMs (Gemini, ChatGPT, Doubao, custom) — agent-driven consult_llm tool, text-log primary UI with on-demand live view, headed/headless browser daemon.",
+  "version": "0.2.0",
+  "description": "DSH web plugin: bridge to third-party web LLMs (Gemini, ChatGPT, Doubao, custom) — agent-driven consult_llm tool with review/code-review/adversary/verify roles, text-log primary UI with on-demand live view, named sessions, token metering, headed/headless browser daemon.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -12,6 +12,7 @@
   "files": [
     "lib",
     "daemon",
+    "docs",
     "cordis.patch.yml",
     "README.md"
   ],
@@ -39,7 +40,8 @@
     }
   },
   "scripts": {
-    "check": "node --check lib/index.js && node --check lib/client.js && node --check lib/adapters/index.js && node --check lib/adapters/gemini.js && node --check lib/adapters/chatgpt.js && node --check lib/adapters/doubao.js && node --check lib/adapters/generic.js"
+    "check": "node --check lib/index.js && node --check lib/client.js && node --check lib/adapters/index.js && node --check lib/adapters/gemini.js && node --check lib/adapters/chatgpt.js && node --check lib/adapters/doubao.js && node --check lib/adapters/generic.js",
+    "smoke": "python3 daemon/smoke_test.py"
   },
   "license": "MIT",
   "repository": {

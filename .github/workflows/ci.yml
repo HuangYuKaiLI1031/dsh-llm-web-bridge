@@ -28,6 +28,14 @@ jobs:
       - name: Python syntax check
         run: python -c "import ast; ast.parse(open('daemon/browser_daemon_webllm.py').read())"
 
+      - name: Install Playwright (browser smoke test)
+        run: |
+          pip install playwright
+          python -m playwright install chromium --with-deps || echo "browser install failed (smoke will skip browser part)"
+
+      - name: Daemon smoke test
+        run: python daemon/smoke_test.py
+
       - name: Package check
         run: |
           npm pack --dry-run

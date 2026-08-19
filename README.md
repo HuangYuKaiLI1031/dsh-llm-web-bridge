@@ -10,24 +10,31 @@
 
 **DSH（DeepSeek Harness）Web 插件**：把第三方**网页版**大模型（Gemini、ChatGPT、豆包、自定义站点）接入你的 agent 工作流——通过真实浏览器驱动，而非 API。
 
-- **`consult_llm` 全局工具**：agent 需要独立审核、第二意见、代码审查、翻译、红队挑战时自动调用网页 LLM
-- **多站点适配器**：Gemini / ChatGPT / 豆包 / 通用（新增站点 = 写一个适配器文件）
+- **`consult_llm` 全局工具**：agent 需要独立审核、第二意见、代码审查、翻译、红队挑战、事实核验时自动调用网页 LLM
+- **多站点适配器**：Gemini / ChatGPT / 豆包 / 通用（新增站点 = 写一个适配器文件，或面板直接配置）
 - **文字对话记录为主** + 实时画面按需开启
 - **单活跃站点**：一次只在线一个 LLM，手动切换，省资源
 - **会话健康检测**：定期探测登录态，失效时面板提示 + 一键重连
+- **ChatGPT 思考模式**：免费版"思考"开关（已实测）；Plus 模型/思考强度预留
+- **命名会话 + Token 计量 + 主动核验规则**：深度参与项目开发
 
 ## 特性
 
 | 能力 | 说明 |
 |---|---|
-| 多站点 | `gemini` / `chatgpt` / `doubao` / `generic`（自定义选择器） |
+| 多站点 | `gemini` / `chatgpt` / `doubao` / `generic`（自定义选择器）+ 面板配置任意站点 |
 | 双显示模式 | 文字对话记录（默认）\| 实时截图（按需） |
 | 持续会话 | 同站点内连续消息延续同一对话；`fresh:true` 才新建 |
+| **命名会话** | 每站点会话列表：新建 / 切换 / 删除，一个项目一个会话可回溯 |
 | 站点命名 | 面板可给每个站点自定义显示名 |
+| **ChatGPT 思考** | 免费版"思考"模式一键开关（已实测）；Plus 模型/强度预留 |
+| **Token 计量** | 每次往返估算 tokens（CJK 感知），按站点累计显示 |
 | 认证多格式 | 智能解析 JSON / DevTools 表格 / Netscape / cookie 字符串 |
 | 反检测 | 有头模式（Xvfb）+ 真实登录态复用 + 导航重试 |
-| 健康检测 | 会话失效自动探测 + 面板状态栏 + 重新连接 |
-| 结束符机制 | 提示词要求模型输出"回答完成，请检查。"，可靠取回完整回复 |
+| 健康检测 | 会话失效自动探测 + 面板状态栏 + 重新连接（非阻塞） |
+| **长任务进度** | 发送中/生成中… 面板动画提示 |
+| **verify 角色** | 事实核查员：区分可确认/需查证/无法验证，给置信度 |
+| 结束符机制 | 提示词要求模型输出"回答完成，请检查。"，消息稳定兜底取回完整回复 |
 
 ## 安装
 
@@ -57,13 +64,16 @@ dsh plugin --profile web add dsh-llm-web-bridge
 | 环境变量 | 默认 | 说明 |
 |---|---|---|
 | `DSH_BRIDGE_BASE` | 插件数据目录 | 运行时数据（cookie/日志/截图） |
-| `DSH_BRIDGE_DAEMON` | `<BASE>/daemon/browser_daemon_webllm.py` | 守护进程路径 |
+| `DSH_BRIDGE_DAEMON` | 包内 `daemon/browser_daemon_webllm.py` | 守护进程路径 |
 | `DSH_BRIDGE_PYTHON` | `<BASE>/.venv/bin/python` | Python 解释器 |
 | `DSH_BRIDGE_BROWSERS` | `<BASE>/.pw-browsers` | Playwright 浏览器 |
 | `DSH_BRIDGE_FONTCONFIG` | `<BASE>/fonts.conf` | 中文字体配置 |
 | `DSH_BRIDGE_XVFB` | `xvfb`（PATH） | Xvfb 二进制 |
+| `DSH_BRIDGE_REPLY_TIMEOUT` | `180` | 回复等待超时（秒），长推理调大 |
+| `DSH_BRIDGE_MAX_REPLY_LEN` | `8000` | 回复截断长度（字符） |
+| `DSH_BRIDGE_STABLE_POLLS` | `4` | 消息连续 N 次稳定即判定完成 |
 
-> 也可在 `cordis.patch.yml` 的插件 `config` 中设置 `headless` / `display` / `xvfbBin` / `daemonPath` 等。
+> 也可在 `cordis.patch.yml` 的插件 `config` 中设置 `headless` / `display` / `xvfbBin` / `daemonPath` / `replyTimeout` / `maxReplyLen` / `base` 等。
 
 ## 认证（每站点独立）
 
@@ -167,8 +177,33 @@ agent 完成推理后 → 调用 consult_llm {
 | `adversary` | 红队对抗：找反驳点、反例、风险、未考虑场景，越尖锐越好 | 结论压测、方案找茬、风险预判 |
 | `reasoner` | 严谨推理：逐步推导、显式检查每一步逻辑 | 逻辑题、数学题、复杂分析 |
 | `editor` | 资深编辑：润色表达、结构、用词，说明主要改动 | 文章润色、文案改写 |
+| `verify` | 事实核查员：区分可确认/需查证/无法验证，给置信度与验证途径 | **核验外部资料、结论真实性** |
 
-### 4. 自定义角色
+### 5. 主动参与项目（核验规则）
+
+插件不只是"偶尔求助的外援"，可通过**主动核验规则**深度嵌入项目开发：
+**引用外部资料前 → `verify` 核验真实性；写完关键代码 → `code-review`；方案定型前 → `adversary` 挑战。**
+详见 [`docs/PROACTIVE_PARTICIPATION.md`](docs/PROACTIVE_PARTICIPATION.md)（含可挂载到 agent preset 的规则段）。
+
+### 6. ChatGPT 思考模式 / 模型
+
+面板在 ChatGPT 站点显示 **🧠 思考** 开关（免费版已实测：点击"思考"pill 切换，状态实时同步）：
+- **免费版**：思考模式开/关（`aria-pressed` 状态）
+- **Plus**：模型选择器 + 思考强度（Low/Medium/High）——适配器已预留，面板检测到模型 pill 即显示当前模型
+
+### 7. 命名会话
+
+面板配置区 → "💬 会话"：每个站点可保存多个命名会话（自动记录标题与 URL），**新建 / 切换 / 删除**。一个项目一个会话，随时切回继续，`chat_log_<site>.jsonl` 全量可回溯。
+
+### 8. Token 计量
+
+状态栏显示 `⚡<累计tokens> tok / <次数> 次`（CJK 感知估算，输入+输出）。`GET ...token-usage` API 可查明细。
+
+### 9. 自定义站点（面板配置）
+
+配置区 → "🌐 自定义站点"：填 **站点名 + URL + 输入框选择器 + 回复选择器** 即可接入任意网页 LLM，无需写代码。保存后出现在站点下拉，切换即用。
+
+### 10. 自定义角色
 
 面板 ⚙️ → 输入角色名 + 提示词 → 保存。之后 `role` 填角色名即可。
 
@@ -180,7 +215,7 @@ agent 完成推理后 → 调用 consult_llm {
 
 自定义角色适合：法律顾问、产品经理、架构师、面试官等任何你需要的"人设"。
 
-### 5. agent 自动调用参数
+### 11. agent 自动调用参数
 
 | 参数 | 说明 |
 |---|---|
@@ -190,7 +225,7 @@ agent 完成推理后 → 调用 consult_llm {
 | `context` | 待审内容（代码/文本/结论，可选） |
 | `fresh` | `true`=新建对话开始新工作流；默认延续当前上下文 |
 
-### 6. 工作流建议
+### 12. 工作流建议
 
 - **审核流程**：主 agent 产出 → `role: review` 复核 → 汇总分歧点
 - **双模型交叉**：Gemini 主用 + ChatGPT 备用（`provider` 切换），同一问题对比答案
@@ -203,16 +238,21 @@ agent 完成推理后 → 调用 consult_llm {
 |---|---|
 | `GET /dsh-llm-bridge/api?action=sites` | 站点列表 + 当前站点 |
 | `POST ...switch-site` | 切换站点 |
-| `GET ...status` | 文字记录 + 状态 |
+| `GET ...status` | 文字记录（最近 10 条）+ 摘要 + token 用量（`?n=` 调条数，`?since=` 增量） |
+| `GET ...token-usage` | Token 用量明细（CJK 感知估算） |
+| `GET ...progress` | 长任务进度（sending/generating/done） |
 | `GET ...list-roles` | 内置 + 自定义角色列表 |
 | `POST ...save-role` | 保存自定义角色 `{name, prompt}` |
 | `POST ...delete-role` | 删除自定义角色 `{name}` |
 | `GET ...auth-status` / `POST ...configure-cookie` / `POST ...clear-auth` | 认证管理 |
-| `GET ...health-status` / `POST ...reconnect` | 会话健康检测 + 重连 |
+| `GET ...health-status` / `POST ...reconnect` | 会话健康检测 + 重连（非阻塞） |
 | `GET ...daemon-status` / `POST ...daemon-start/stop` | 守护进程管理 |
 | `POST ...send` | 发送消息 |
-| `POST ...action` | 操作（new-chat / stop / screenshot） |
+| `POST ...action` | 操作（new-chat / stop / screenshot / no-screenshot） |
 | `POST ...rename-site` | 站点命名 |
+| `GET/POST ...list-sessions` / `switch-session` / `rename-session` / `delete-session` | 命名会话管理 |
+| `POST ...save-custom-site` / `delete-custom-site` | 自定义站点配置 |
+| `POST ...click` / `eval` / `get-dom` | UI 驱动 + 调试（`{selector/testid/text/role}` 或 `{expression}`） |
 | `GET /dsh-llm-bridge/frame.jpg?site=xx` | 实时截图（按需） |
 
 ## 站点适配器
@@ -234,17 +274,21 @@ lib/adapters/
 dsh-llm-web-bridge/
 ├── package.json / cordis.patch.yml / LICENSE / README.md / CHANGELOG.md
 ├── .github/               # Issue/PR 模板 + CI
+├── docs/
+│   └── PROACTIVE_PARTICIPATION.md  # 主动核验规则（可挂载到 agent preset）
 ├── lib/
 │   ├── index.js       # Host：API + consult_llm + 守护管理 + Xvfb
-│   ├── client.js      # Client：面板（记录/实时/状态栏/配置/角色）
+│   ├── client.js      # Client：面板（记录/实时/状态栏/配置/角色/会话/思考）
 │   └── adapters/      # 站点适配器（gemini/chatgpt/doubao/generic）
 └── daemon/
-    └── browser_daemon_webllm.py  # 浏览器守护（headless/headed）
+    ├── browser_daemon_webllm.py  # 浏览器守护（headless/headed）
+    └── smoke_test.py             # CI 冒烟测试
 ```
 
 ## 常见问题
 
 - **ChatGPT 卡"请稍候"**：Cloudflare challenge，等几秒或重试导航；确认 cookie 含 `cf_clearance`；有头模式（Xvfb）显著改善。
+- **长回复被截断 / 60s 超时**：默认 180s / 8000 字符已放宽，仍不够用 `DSH_BRIDGE_REPLY_TIMEOUT` / `DSH_BRIDGE_MAX_REPLY_LEN` 调大。
 - **改了代码不生效**：正式插件启动时加载，改后重启 DSH。
 - **守护状态误判**：外部杀进程后先"⏹ 停止"再"▶ 启动"。
 - **中文方块**：装中文字体 + `FONTCONFIG_FILE`。
