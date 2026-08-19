@@ -475,14 +475,11 @@ def load_auth(ctx, site):
 
 def main():
     load_custom_sites()
-    active_site = "gemini"  # default site at boot
-    if os.path.exists(COMMAND_FILE):
-        try:
-            boot = json.load(open(COMMAND_FILE))
-            if boot.get("site"):
-                active_site = boot["site"]
-        except Exception:
-            pass
+    # default site at boot: DSH_BRIDGE_DEFAULT_SITE env (Host passes
+    # config.defaultSite / DSH_BRIDGE_DEFAULT_SITE), falling back to chatgpt.
+    # A stale COMMAND_FILE site is NOT honored — the Host decides the active
+    # site at startup so the panel and daemon stay in sync.
+    active_site = os.environ.get("DSH_BRIDGE_DEFAULT_SITE", "chatgpt")
 
     headless = os.environ.get("DSH_HEADLESS", "1") != "0"
     print(f"BROWSER MODE headless={headless} display={os.environ.get('DISPLAY', '(none)')} "
