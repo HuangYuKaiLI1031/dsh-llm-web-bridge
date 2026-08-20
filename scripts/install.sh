@@ -97,29 +97,44 @@ if [[ ${#MISSING_OPTS[@]} -gt 0 ]]; then
 fi
 
 # ---------- 4. 安装到 DSH profile ----------
+PROFILE_DIR="$HOME/.dsh/profiles/$PROFILE"
 echo "==> 注册插件到 DSH profile '${PROFILE}'"
 if command -v dsh >/dev/null 2>&1; then
   dsh plugin --profile "$PROFILE" add "$PLUGIN_DIR" || true
-elif [[ -f "$HOME/.dsh/profiles/$PROFILE/package.json" ]]; then
-  echo "  dsh CLI 不在 PATH，改为手动写入方式（若已存在则跳过）"
-  # 简单 link 注册（若 package.json 还没有这个依赖）
-  if ! grep -q "dsh-web-llm-bridge" "$HOME/.dsh/profiles/$PROFILE/package.json" 2>/dev/null; then
-    echo "  ! 请手动在 $HOME/.dsh/profiles/$PROFILE/package.json 的 dependencies 中加入："
-    echo "    \"dsh-web-llm-bridge\": \"link:$PLUGIN_DIR\""
+elif [[ -f "$PROFILE_DIR/package.json" ]]; then
+  echo "  dsh CLI 不在 PATH，尝试直接写入 profile/package.json"
+  if ! grep -q '"dsh-web-llm-bridge"' "$PROFILE_DIR/package.json" 2>/dev/null; then
+    # 用 node 的 npm pkg 语法更新（若可用），否则提示手动
+    if command -v npm >/dev/null 2>&1 && ( cd "$PROFILE_DIR" && npm pkg set "dependencies.dsh-web-llm-bridge=link:$PLUGIN_DIR" >/dev/null 2>&1 ); then
+      echo "  已把 dsh-web-llm-bridge 加入 $PROFILE_DIR/package.json"
+    else
+      echo "  ! 未能自动写入，请手动在 $PROFILE_DIR/package.json 的 dependencies 加入："
+      echo "    \"dsh-web-llm-bridge\": \"link:$PLUGIN_DIR\""
+    fi
+  else
+    echo "  package.json 已包含 dsh-web-llm-bridge，跳过"
   fi
 else
-  echo "  ! 未找到 DSH profile 目录 (~/.dsh/profiles/$PROFILE)，跳过自动注册"
-  echo "    请先初始化 DSH web profile，再运行本脚本。"
+  echo "  ! 未找到 DSH profile 目录 ($PROFILE_DIR)，跳过自动注册"
+  echo "    请先初始化 DSH web profile（如 dsh init --profile $PROFILE），再运行本脚本。"
 fi
 
 # ---------- 5. 生成/更新 profile 配置 (cordis.patch.yml) ----------
-PATCH_FILE="$HOME/.dsh/profiles/$PROFILE/cordis.patch.yml"
-if [[ -f "$PATCH_FILE" ]]; then
+PATCH_FILE="$PROFILE_DIR/cordis.patch.yml"
+if [[ -d "$PROFILE_DIR" ]]; then
   echo "==> 更新 $PATCH_FILE"
+  # 若文件不存在则创建（空 profile 根）
+  if [[ ! -f "$PATCH_FILE" ]]; then
+    echo "# dsh-llm-web-bridge install.sh generated" > "$PATCH_FILE"
+    echo "[]" >> "$PATCH_FILE"
+  fi
   # 如果已经配置过则跳过，否则追加
   if ! grep -q "id: web-llm-bridge" "$PATCH_FILE"; then
+    # 若当前是空的 "[]"，先替换为合法 YAML 数组
+    if grep -q '^\[\]$' "$PATCH_FILE"; then
+      sed -i 's/^\[\]$//' "$PATCH_FILE"
+    fi
     cat >> "$PATCH_FILE" <<PATCH
-
 - id: web-llm-bridge
   config:
     base: $BASE
@@ -127,7 +142,7 @@ if [[ -f "$PATCH_FILE" ]]; then
     playwrightBrowsers: $PLAYWRIGHT_BROWSERS
     headless: $( [[ "$HEADLESS" == "headless" ]] && echo true || echo false )
 PATCH
-    echo "  已追加插件配置到 $PATCH_FILE"
+    echo "  已写入插件配置到 $PATCH_FILE"
   else
     echo "  $PATCH_FILE 已包含 web-llm-bridge 配置，跳过（如需更新请手动编辑）"
   fi
