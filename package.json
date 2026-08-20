@@ -41,7 +41,9 @@
   },
   "scripts": {
     "check": "node --check lib/index.js && node --check lib/client.js && node --check lib/adapters/index.js && node --check lib/adapters/gemini.js && node --check lib/adapters/chatgpt.js && node --check lib/adapters/doubao.js && node --check lib/adapters/generic.js",
-    "smoke": "python3 daemon/smoke_test.py"
+    "smoke": "python3 daemon/smoke_test.py",
+    "install:plugin": "./scripts/install.sh",
+    "doctor": "./scripts/doctor.sh"
   },
   "license": "MIT",
   "repository": {

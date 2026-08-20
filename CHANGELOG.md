@@ -7,7 +7,12 @@
 ### 新增
 - **主动核验规则自动注入 system prompt**：安装插件即把精简核验规则注册进 agent 的 system prompt（`ctx.inject(['systemPrompt'])`），让主 agent 在"引用资料前 / 关键代码后 / 方案定型前"自动调用 `consult_llm` 独立核验——无需手动配置 preset。可用 `config.proactiveRules = false` 关闭
 
+### 新增
+- **一键安装脚本 `scripts/install.sh`**：自动完成 venv 创建、Playwright 安装、Chromium 下载、Xvfb/字体检测、DSH profile 注册与配置生成，把安装从 5+ 步手动操作收敛为一条命令
+- **环境诊断脚本 `scripts/doctor.sh`**：一键检查插件/Python/Playwright/Chromium/语法等必需依赖，给出缺失项的修复命令
+
 ### 优化
+- **安装文档重写**：README 新增「一键安装（推荐）」「手动安装（详细分步）」「环境自检」「常见问题 FAQ」四节，明确每个参数含义与排障步骤
 - **ChatGPT UI 状态核验降频**：`syncChatgptUi`（思考开关/当前模型）从 3s 轮询改为 **30min 自动核验** + 面板新增「🔄 验证」按钮可手动即时核验（降低对真实浏览器的 eval 请求频率）
 
 ### 修复

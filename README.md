@@ -38,24 +38,128 @@
 
 ## 安装
 
+### ⚡ 方式一：一键脚本（推荐）
+
 ```bash
-# 1. 运行时依赖
+# 克隆/进入插件目录后执行：
+./scripts/install.sh
+
+# 常用参数：
+./scripts/install.sh --base /data/llm-bridge      # 指定数据目录（默认 ~/dsh-web-llm-bridge-data）
+./scripts/install.sh --profile web --headless     # 指定 DSH profile、无头模式
+./scripts/install.sh --headless                   # 无头模式（不需要 Xvfb）
+./scripts/install.sh --help                       # 查看全部参数
+
+# 安装后检查环境：
+./scripts/doctor.sh --base /data/llm-bridge       # 诊断必需依赖是否就绪
+```
+
+脚本会自动完成：创建 Python 虚拟环境 → 安装 Playwright → 下载 Chromium → 检测 Xvfb/字体 → 注册到 DSH profile → 生成配置。
+
+> **安装后仍需手动做两件事**：重启 DSH web、在面板粘贴 Cookie（见下方「认证」）。
+
+---
+
+### 🔧 方式二：手动安装
+
+#### 1. Python 运行时依赖
+
+```bash
+# 创建虚拟环境（<BASE> 是你的数据目录，例如 ~/dsh-web-llm-bridge-data）
+mkdir -p <BASE>
 python3 -m venv <BASE>/.venv
 <BASE>/.venv/bin/pip install playwright
+
+# 下载 Chromium（必须指定 PLAYWRIGHT_BROWSERS_PATH，daemon 会用它）
 PLAYWRIGHT_BROWSERS_PATH=<BASE>/.pw-browsers <BASE>/.venv/bin/playwright install chromium
-
-# 2. 中文字体（可选，否则中文显示方块）
-#    下载 Noto Sans SC 到 <BASE>/.fonts/，配置 FONTCONFIG_FILE
-
-# 3. Xvfb（可选，有头模式，绕过 Cloudflare/验证码更有效）
-#    conda: conda create -n xvfb-clean -c conda-forge xvfb  或系统包管理器安装
-
-# 4. 安装插件到 DSH web profile
-cd ~/.dsh/profiles/web
-dsh plugin --profile web add dsh-llm-web-bridge
-# 或本地: dsh plugin --profile web add "link:<本插件路径>"
-# 重启 dsh web
 ```
+
+> `python3` 需要 3.9+。如果系统没有 `venv`，先 `apt install python3-venv`（Debian/Ubuntu）或 `conda create -n llm-bridge python=3.11`。
+
+#### 2. （可选）中文字体
+
+不装只会导致面板中文显示为方块，不影响功能：
+
+```bash
+# Debian/Ubuntu
+apt install fonts-noto-cjk
+# 或手动下载 Noto Sans SC 到 <BASE>/.fonts/，设置 FONTCONFIG_FILE=<BASE>/fonts.conf
+```
+
+#### 3. （可选）Xvfb 虚拟显示
+
+**有头模式**（默认）能显著降低 Cloudflare/验证码拦截率，需要在无显示器的服务器上装 Xvfb：
+
+```bash
+# conda（推荐）
+conda create -n xvfb-clean -c conda-forge xvfb
+# 或 Debian/Ubuntu
+apt install xvfb
+```
+
+如果选择**无头模式**（`--headless` 或配置 `headless: true`），可以跳过 Xvfb。
+
+#### 4. 把插件注册到 DSH profile
+
+```bash
+# 方式 A：用 dsh CLI（推荐，会自动 link）
+cd ~/.dsh/profiles/web
+dsh plugin --profile web add /path/to/dsh-llm-web-bridge
+
+# 方式 B：手动在 profile 的 package.json 加依赖
+cd ~/.dsh/profiles/web
+npm pkg set dependencies.dsh-web-llm-bridge="link:/path/to/dsh-llm-web-bridge"
+```
+
+#### 5. 配置插件（cordis.patch.yml）
+
+在 `~/.dsh/profiles/web/cordis.patch.yml` 追加：
+
+```yaml
+- id: web-llm-bridge
+  config:
+    base: /path/to/data-dir
+    pythonBin: /path/to/data-dir/.venv/bin/python
+    playwrightBrowsers: /path/to/data-dir/.pw-browsers
+    headless: false          # true = 无头模式（可不装 Xvfb）
+    display: ':99'           # 有头模式时使用
+    # xvfbBin: /path/to/Xvfb # 如不在 PATH
+    # fontconfigFile: /path/to/data-dir/fonts.conf
+```
+
+> 一键脚本会自动完成第 4、5 步，手动安装请按此配置。
+
+#### 6. 重启 DSH web
+
+```bash
+cd ~/.dsh/profiles/web
+dsh web
+```
+
+---
+
+### 🩺 环境自检
+
+安装后或遇到问题先跑：
+
+```bash
+./scripts/doctor.sh                      # 默认数据目录
+./scripts/doctor.sh --base /data/llm-bridge   # 指定数据目录
+```
+
+它会检查：插件文件、Python 虚拟环境、Playwright 包、Node/语法、Chromium 目录，并提示缺失项的修复命令。
+
+### ❓ 常见问题
+
+| 症状 | 原因 / 解决 |
+|---|---|
+| 面板一直显示"守护未运行" | 说明 daemon 没起来。先跑 `./scripts/doctor.sh` 看依赖是否缺；确认 `cordis.patch.yml` 里 `pythonBin`/`playwrightBrowsers` 路径正确；重启 DSH web |
+| 浏览器启动报 `Executable doesn't exist` | `PLAYWRIGHT_BROWSERS_PATH` 没对。重新执行 `PLAYWRIGHT_BROWSERS_PATH=<BASE>/.pw-browsers <BASE>/.venv/bin/python -m playwright install chromium` |
+| ChatGPT 显示"请稍候…" | Cloudflare 拦截，Cookie 失效。在面板 ⚙️ 重新粘贴完整 Cookie（含 `cf_clearance`、`__cf_bm`），保存后自动重载 |
+| 豆包发消息取回的是用户自己说的话 | 豆包回复选择器较宽泛，且豆包有字节验证码风控，可用性取决于环境；建议优先用 Gemini/ChatGPT |
+| 中文显示为方块 | 未装中文字体。安装 `fonts-noto-cjk` 或配置 `FONTCONFIG_FILE` |
+| 有头模式没画面 | 确认 `Xvfb` 已装且 `display: ':99'` 没有被占用；无显示器时用 `--headless` |
+
 
 ## 配置
 
