@@ -181,9 +181,12 @@ agent 完成推理后 → 调用 consult_llm {
 
 ### 5. 主动参与项目（核验规则）
 
-插件不只是"偶尔求助的外援"，可通过**主动核验规则**深度嵌入项目开发：
+插件不只是"偶尔求助的外援"，通过**主动核验规则**深度嵌入项目开发：
 **引用外部资料前 → `verify` 核验真实性；写完关键代码 → `code-review`；方案定型前 → `adversary` 挑战。**
-详见 [`docs/PROACTIVE_PARTICIPATION.md`](docs/PROACTIVE_PARTICIPATION.md)（含可挂载到 agent preset 的规则段）。
+
+**安装即自动触发**：插件通过 `ctx.inject(['systemPrompt'])` 把精简核验规则自动注册进 agent 的 system prompt，无需手动配置 preset——主 agent 会在关键节点主动调用 `consult_llm` 独立核验。不想自动注入时，在插件 config 里设 `proactiveRules: false` 即可关闭。
+
+完整规则与触发策略见 [`docs/PROACTIVE_PARTICIPATION.md`](docs/PROACTIVE_PARTICIPATION.md)。
 
 ### 6. ChatGPT 思考模式 / 模型
 

@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### 新增
+- **主动核验规则自动注入 system prompt**：安装插件即把精简核验规则注册进 agent 的 system prompt（`ctx.inject(['systemPrompt'])`），让主 agent 在"引用资料前 / 关键代码后 / 方案定型前"自动调用 `consult_llm` 独立核验——无需手动配置 preset。可用 `config.proactiveRules = false` 关闭
+
+### 优化
+- **ChatGPT UI 状态核验降频**：`syncChatgptUi`（思考开关/当前模型）从 3s 轮询改为 **30min 自动核验** + 面板新增「🔄 验证」按钮可手动即时核验（降低对真实浏览器的 eval 请求频率）
+
+### 修复
+- **`consult_llm` 工具输出被 DSH 拒绝**：`consult()` 返回带 `data`/`result`/`sessions`/`health` 字段的对象，与 output schema（`additionalProperties:false`，仅 `ok/reply/error`）冲突，导致工具调用报 `"value.data" is not a declared property`。修复：`execute` 返回前裁剪为 schema 声明的字段
+- **站点切换时丢弃 text**：daemon 在 `cmd.site != last_site` 时只回复"已重新连接"就 `continue`，导致 `consult_llm` 首次调用（provider≠当前站点）拿不到答案。修复：切换后若命令带 text/action 则继续处理，一次调用即返回答案
+- **编辑框误选隐藏 fallback**：`find_editor` 用 `is_visible()` 可能误判 ChatGPT 的隐藏 fallback textarea（`wcDTda_fallbackTextarea`，0×0）为可见，导致 `fill` 超时。修复：增加非零 bounding box 尺寸检查并跳过 `aria-hidden` 元素，确保选到真实可见输入框
+- **发送前 editor 重试**：`send_question` 首次探测 editor 失败即返回，页面切换/加载瞬间会误报 `editor not found`。修复：最多重试 6 次（每次 2s）再判定失败
+- **跨站点 healthCheck 被切换吞掉**：daemon 在 `cmd.site != last_site` 时只回复"已重新连接"就 `continue`，健康检查被跳过。修复：切换分支仅在没有 `text`/`action`/`healthCheck` 时才提前返回
+
 ### 计划中（Roadmap）
 - 更多站点适配器：Claude、Kimi、DeepSeek 等
 - 会话导出 / 导入（备份与迁移）

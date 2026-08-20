@@ -173,8 +173,24 @@ def find_editor(page, site):
     for sel in spec.get("editor_selectors") or []:
         try:
             loc = page.locator(sel).first
-            if loc.count() > 0 and loc.is_visible():
-                return loc
+            if loc.count() == 0:
+                continue
+            if not loc.is_visible():
+                continue
+            # Playwright's is_visible() can miss visually-hidden fallback inputs
+            # (e.g. ChatGPT's wcDTda_fallbackTextarea: 0×0, aria-hidden). Require a
+            # non-zero bounding box and skip explicit hidden/fallback elements so we
+            # pick the REAL composer, not the a11y fallback.
+            box = loc.bounding_box()
+            if not box or box.get("width", 0) < 5 or box.get("height", 0) < 5:
+                continue
+            try:
+                hidden = loc.get_attribute("aria-hidden")
+                if hidden and hidden.strip().lower() not in ("", "false", "null"):
+                    continue
+            except Exception:
+                pass
+            return loc
         except Exception:
             continue
     return None
@@ -217,7 +233,15 @@ COMPLETION_MARKER = "回答完成，请检查。"
 
 def send_question(page, site, text, health_cb=None):
     write_progress(site, "sending")
-    editor = find_editor(page, site)
+    # The editor may render a moment after page load / site switch; retry a few
+    # times instead of failing on the first probe (observed: health says editor
+    # present but a send right after a switch/health probe missed it).
+    editor = None
+    for _ in range(6):
+        editor = find_editor(page, site)
+        if editor is not None:
+            break
+        time.sleep(2)
     if editor is None:
         write_progress(site, "error", "editor not found")
         return {"ok": False, "error": "editor not found"}
@@ -597,10 +621,14 @@ def main():
                                     pass
                                 last_site = target
                                 ctx, page = create_context(last_site)
-                                with open(REPLY_FILE, "w") as f:
-                                    json.dump({"id": cmd["id"], "ok": True, "reply": f"已重新连接 {last_site}"}, f, ensure_ascii=False)
-                                os.remove(COMMAND_FILE)
-                                continue
+                                # A pure switch/reconnect command (no text/action) is answered with the
+                                # confirmation and done; a switch that also carries text/action falls
+                                # through so consult_llm can switch site AND get its answer in one call.
+                                if not cmd.get("text") and not cmd.get("action") and not cmd.get("healthCheck"):
+                                    with open(REPLY_FILE, "w") as f:
+                                        json.dump({"id": cmd["id"], "ok": True, "reply": f"已重新连接 {last_site}"}, f, ensure_ascii=False)
+                                    os.remove(COMMAND_FILE)
+                                    continue
                             if cmd.get("healthCheck"):
                                 h = check_health()
                                 with open(REPLY_FILE, "w") as f:
