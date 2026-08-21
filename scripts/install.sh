@@ -147,25 +147,26 @@ find_conda() {
 }
 
 ensure_conda_deps() {
-  local CONDA="$(find_conda)" || { echo "  ✗ 未找到 conda/mamba（可手动指定：--conda-deps /path/to/mamba）"; return 1; }
-  echo "==> 用 conda 准备 Chromium 系统库环境: $CONDA_DEP_ENV"
-  echo "  (conda: $CONDA)"
+  local CONDA="$(find_conda)" || { echo "  ✗ 未找到 conda/mamba（可手动指定：--conda-deps /path/to/mamba）" >&2; return 1; }
+  echo "==> 用 conda 准备 Chromium 系统库环境: $CONDA_DEP_ENV" >&2
+  echo "  (conda: $CONDA)" >&2
   local BASE_ENV="$("$CONDA" env list 2>/dev/null | awk -v e="$CONDA_DEP_ENV" '$1==e{print $NF; exit}')"
   if [[ -z "$BASE_ENV" ]]; then
-    echo "  创建 conda 环境 $CONDA_DEP_ENV（首次需下载，稍候）..."
+    echo "  创建 conda 环境 $CONDA_DEP_ENV（首次需下载，稍候）..." >&2
     "$CONDA" create -y -n "$CONDA_DEP_ENV" -c conda-forge \
       atk at-spi2-atk at-spi2-core \
       libcups libxkbcommon \
       xorg-libxcomposite xorg-libxdamage xorg-libxfixes xorg-libxrandr \
       libgbm pango cairo \
-      nss nspr alsa-lib expat \
-      >/dev/null || { echo "  ✗ conda create 失败，请手动检查网络/渠道后重试"; return 1; }
+      nss nspr alsa-lib expat glib dbus libdrm \
+      >/dev/null 2>&1 || { echo "  ✗ conda create 失败，请手动检查网络/渠道后重试" >&2; return 1; }
     BASE_ENV="$("$CONDA" env list 2>/dev/null | awk -v e="$CONDA_DEP_ENV" '$1==e{print $NF; exit}')"
   else
-    echo "  复用已有 conda 环境: $BASE_ENV"
+    echo "  复用已有 conda 环境: $BASE_ENV" >&2
   fi
   if [[ -z "$BASE_ENV" || ! -d "$BASE_ENV/lib" ]]; then
-    echo "  ✗ 无法定位 conda 环境目录"; return 1
+    echo "  ✗ 无法定位 conda 环境目录" >&2
+    return 1
   fi
   echo "$BASE_ENV/lib"
 }
@@ -178,6 +179,17 @@ missing_libs() {
 LDLIB_PATH=""
 if [[ "$CONDA_EXE" != "" ]]; then
   LDLIB_PATH="$(ensure_conda_deps)" && echo "  ✓ Chromium 系统库目录: $LDLIB_PATH"
+  # 实测：用 LD_LIBRARY_PATH 指向 conda lib，重新 ldd 确认无缺库（最硬的目标机验证）
+  if [[ -n "$CHROME_BIN" && -x "$CHROME_BIN" ]]; then
+    REMAIN="$(LD_LIBRARY_PATH="$LDLIB_PATH" ldd "$CHROME_BIN" 2>/dev/null | awk '/not found/{print $1}')"
+    if [[ -n "$REMAIN" ]]; then
+      echo "  ⚠ 设置 LD_LIBRARY_PATH 后仍有缺库（可能需 glibc 版本匹配）:"
+      echo "$REMAIN" | sed 's/^/      /'
+      echo "    提示：若 Chromium 启动段错误/报 GLIBC_X not found，说明宿主 glibc 过旧，conda 库不兼容，需换方案（如系统 apt 或新系统）。"
+    else
+      echo "  ✓ ldd 复检：设置 LD_LIBRARY_PATH 后 Chromium 无缺库"
+    fi
+  fi
 else
   local_missing="$(missing_libs)"
   if [[ -n "$local_missing" ]]; then
