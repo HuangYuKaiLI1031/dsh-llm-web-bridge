@@ -57,9 +57,45 @@ echo "==> DSH profile: $PROFILE ($HEADLESS 模式)"
 mkdir -p "$BASE"
 
 # ---------- 1. Python 虚拟环境 + Playwright ----------
-if [[ ! -x "$PYTHON_BIN" ]]; then
+# 部分 Debian/Ubuntu 的系统 python3 缺 ensurepip（需 python3-venv 包），
+# 直接 python3 -m venv 会失败。这里先正常尝试；失败则降级为
+# --without-pip + get-pip.py 引导安装（无需 sudo/apt），保证安装不被卡死。
+create_venv() {
   echo "==> 创建 Python 虚拟环境: $BASE/.venv"
-  python3 -m venv "$BASE/.venv"
+  if python3 -m venv "$BASE/.venv"; then
+    return 0
+  fi
+  echo "  ! python3 -m venv 失败（常见原因：缺少 ensurepip / python3-venv 包）"
+  echo "    降级方案：--without-pip + get-pip.py 引导安装 pip"
+  rm -rf "$BASE/.venv"
+  if ! python3 -m venv --without-pip "$BASE/.venv"; then
+    echo "  ✗ 虚拟环境仍创建失败。请任选其一后重试："
+    echo "    1) sudo apt install python3-venv   （推荐，安装系统 venv 支持）"
+    echo "    2) 用自带 ensurepip 的 Python 重新运行："
+    echo "       DSH_BRIDGE_PYTHON=/path/to/python-with-ensurepip ./scripts/install.sh"
+    return 1
+  fi
+  local GETPIP="$BASE/.venv/get-pip.py"
+  # 新版 get-pip.py 要求 Python >=3.10；老版本用带版本的 URL（pip/3.9、pip/3.8…）
+  local PYVER
+  PYVER="$("$BASE/.venv/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  local PIP_URL="https://bootstrap.pypa.io/get-pip.py"
+  case "$PYVER" in
+    3.8|3.9) PIP_URL="https://bootstrap.pypa.io/pip/$PYVER/get-pip.py" ;;
+  esac
+  echo "  (venv Python $PYVER，get-pip 来源: $PIP_URL)"
+  if curl -fsSL "$PIP_URL" -o "$GETPIP" 2>/dev/null || wget -q "$PIP_URL" -O "$GETPIP" 2>/dev/null; then
+    "$BASE/.venv/bin/python" "$GETPIP"
+    rm -f "$GETPIP"
+    echo "  ✓ 已通过 get-pip.py 安装 pip"
+  else
+    echo "  ✗ 下载 get-pip.py 失败（请检查网络，或手动执行上面的 apt 方案）"
+    return 1
+  fi
+}
+
+if [[ ! -x "$PYTHON_BIN" ]]; then
+  create_venv || exit 1
 else
   echo "==> 复用已有虚拟环境: $BASE/.venv"
 fi
