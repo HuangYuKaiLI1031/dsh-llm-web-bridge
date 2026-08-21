@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""dsh-web-llm-bridge browser daemon.
+"""dsh-llm-web-bridge browser daemon.
 
 Manages ONE active site at a time (no concurrent sites). The active site is
 driven by commands.json: a {site: <name>} command switches the active context

@@ -104,11 +104,12 @@ apt install xvfb
 ```bash
 # 方式 A：用 dsh CLI（推荐，会自动 link）
 cd ~/.dsh/profiles/web
-dsh plugin --profile web add /path/to/dsh-llm-web-bridge
+dsh plugin --profile web add link:/path/to/dsh-llm-web-bridge
 
 # 方式 B：手动在 profile 的 package.json 加依赖
 cd ~/.dsh/profiles/web
-npm pkg set dependencies.dsh-web-llm-bridge="link:/path/to/dsh-llm-web-bridge"
+npm pkg set dependencies.dsh-llm-web-bridge="link:/path/to/dsh-llm-web-bridge"
+npm install
 ```
 
 #### 5. 配置插件（cordis.patch.yml）

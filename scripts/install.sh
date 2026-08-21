@@ -111,16 +111,16 @@ add_local_via_npm() {
     echo "    请先初始化 DSH web profile（如 dsh init --profile $PROFILE），再运行本脚本。"
     return 1
   fi
-  if grep -q '"dsh-web-llm-bridge"' "$PROFILE_DIR/package.json" 2>/dev/null; then
-    echo "  package.json 已包含 dsh-web-llm-bridge，跳过"
+  if grep -q '"dsh-llm-web-bridge"' "$PROFILE_DIR/package.json" 2>/dev/null; then
+    echo "  package.json 已包含 dsh-llm-web-bridge，跳过"
     return 0
   fi
-  if command -v npm >/dev/null 2>&1 && ( cd "$PROFILE_DIR" && npm pkg set "dependencies.dsh-web-llm-bridge=link:$PLUGIN_DIR" >/dev/null 2>&1 ); then
-    echo "  已把 dsh-web-llm-bridge 加入 $PROFILE_DIR/package.json"
+  if command -v npm >/dev/null 2>&1 && ( cd "$PROFILE_DIR" && npm pkg set "dependencies.dsh-llm-web-bridge=link:$PLUGIN_DIR" >/dev/null 2>&1 ); then
+    echo "  已把 dsh-llm-web-bridge 加入 $PROFILE_DIR/package.json"
     return 0
   fi
   echo "  ! 未能自动写入，请手动在 $PROFILE_DIR/package.json 的 dependencies 加入："
-  echo "    \"dsh-web-llm-bridge\": \"link:$PLUGIN_DIR\""
+  echo "    \"dsh-llm-web-bridge\": \"link:$PLUGIN_DIR\""
   return 1
 }
 
@@ -128,7 +128,7 @@ echo "==> 注册插件到 DSH profile '${PROFILE}'"
 add_local_via_dsh
 # 双保险：确认 dependencies 里确实有该插件（dsh add 可能因网络/策略没写进去），
 # 没有则用 npm pkg set 兜底写入（dsh CLI 分支也会走到这里做校验）。
-if ! grep -q '"dsh-web-llm-bridge"' "$PROFILE_DIR/package.json" 2>/dev/null; then
+if ! grep -q '"dsh-llm-web-bridge"' "$PROFILE_DIR/package.json" 2>/dev/null; then
   add_local_via_npm
 fi
 
