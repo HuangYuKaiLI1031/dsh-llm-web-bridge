@@ -11,11 +11,14 @@
 #
 # 用法:
 #   ./scripts/install.sh [--base DIR] [--profile NAME] [--headless] [--no-browser]
+#                        [--conda-deps [CONDA_EXE]]
 #
 # 示例:
 #   ./scripts/install.sh                              # 默认安装到 ~/dsh-web-llm-bridge-data
 #   ./scripts/install.sh --base /data/llm-bridge      # 指定数据目录
 #   ./scripts/install.sh --profile web --headless     # 指定 profile 并使用无头模式
+#   ./scripts/install.sh --conda-deps                 # 用 conda 装齐 Chromium 系统库（无需 sudo）
+#   ./scripts/install.sh --conda-deps /path/to/mamba  # 指定 conda/mamba 可执行文件
 #
 set -euo pipefail
 
@@ -26,6 +29,8 @@ BASE="${DSH_BRIDGE_BASE:-$HOME/dsh-web-llm-bridge-data}"
 PROFILE="web"
 HEADLESS="headed"
 INSTALL_BROWSER=1
+CONDA_DEP_ENV="dsh-llm-web-bridge-deps"   # Chromium 系统依赖 conda 环境名
+CONDA_EXE=""                               # 空 = 自动探测 conda/mamba
 
 # ---------- 解析参数 ----------
 while [[ $# -gt 0 ]]; do
@@ -38,6 +43,12 @@ while [[ $# -gt 0 ]]; do
       HEADLESS="headless"; shift;;
     --no-browser)
       INSTALL_BROWSER=0; shift;;
+    --conda-deps)
+      if [[ $# -ge 2 && "$2" != --* ]]; then
+        CONDA_EXE="$2"; shift 2
+      else
+        CONDA_EXE="auto"; shift
+      fi;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'
       exit 0;;
@@ -112,6 +123,78 @@ else
   echo "==> 跳过浏览器安装 (--no-browser)"
 fi
 
+# ---------- 2.5 Chromium 系统依赖（conda，无需 sudo） ----------
+# 无 root 权限的机器上系统常缺 libatk/libcups/libxkbcommon/libgbm/pango/cairo 等，
+# 用 conda-forge 装到一个专用环境，再把它的 lib 目录经 LD_LIBRARY_PATH 注入守护进程。
+CHROME_BIN=""
+if [[ -d "$PLAYWRIGHT_BROWSERS" ]]; then
+  CHROME_BIN="$(find "$PLAYWRIGHT_BROWSERS" -type f -path '*/chrome-linux/chrome' 2>/dev/null | head -1)"
+fi
+
+find_conda() {
+  if [[ "$CONDA_EXE" == "auto" || -z "$CONDA_EXE" ]]; then
+    for c in mamba conda; do
+      if command -v "$c" >/dev/null 2>&1; then echo "$(command -v "$c")"; return 0; fi
+    done
+    for p in "$HOME/miniforge3" "$HOME/miniconda3" "$HOME/anaconda3" /opt/conda; do
+      if [[ -x "$p/bin/conda" ]]; then echo "$p/bin/conda"; return 0; fi
+      if [[ -x "$p/bin/mamba" ]]; then echo "$p/bin/mamba"; return 0; fi
+    done
+    return 1
+  else
+    echo "$CONDA_EXE"
+  fi
+}
+
+ensure_conda_deps() {
+  local CONDA="$(find_conda)" || { echo "  ✗ 未找到 conda/mamba（可手动指定：--conda-deps /path/to/mamba）"; return 1; }
+  echo "==> 用 conda 准备 Chromium 系统库环境: $CONDA_DEP_ENV"
+  echo "  (conda: $CONDA)"
+  local BASE_ENV="$("$CONDA" env list 2>/dev/null | awk -v e="$CONDA_DEP_ENV" '$1==e{print $NF; exit}')"
+  if [[ -z "$BASE_ENV" ]]; then
+    echo "  创建 conda 环境 $CONDA_DEP_ENV（首次需下载，稍候）..."
+    "$CONDA" create -y -n "$CONDA_DEP_ENV" -c conda-forge \
+      atk at-spi2-atk at-spi2-core \
+      libcups libxkbcommon \
+      xorg-libxcomposite xorg-libxdamage xorg-libxfixes xorg-libxrandr \
+      libgbm pango cairo \
+      nss nspr alsa-lib expat \
+      >/dev/null || { echo "  ✗ conda create 失败，请手动检查网络/渠道后重试"; return 1; }
+    BASE_ENV="$("$CONDA" env list 2>/dev/null | awk -v e="$CONDA_DEP_ENV" '$1==e{print $NF; exit}')"
+  else
+    echo "  复用已有 conda 环境: $BASE_ENV"
+  fi
+  if [[ -z "$BASE_ENV" || ! -d "$BASE_ENV/lib" ]]; then
+    echo "  ✗ 无法定位 conda 环境目录"; return 1
+  fi
+  echo "$BASE_ENV/lib"
+}
+
+missing_libs() {
+  [[ -n "$CHROME_BIN" && -x "$CHROME_BIN" ]] || return 0
+  ldd "$CHROME_BIN" 2>/dev/null | awk '/not found/{print $1}'
+}
+
+LDLIB_PATH=""
+if [[ "$CONDA_EXE" != "" ]]; then
+  LDLIB_PATH="$(ensure_conda_deps)" && echo "  ✓ Chromium 系统库目录: $LDLIB_PATH"
+else
+  local_missing="$(missing_libs)"
+  if [[ -n "$local_missing" ]]; then
+    echo ""
+    echo "  ⚠ 检测到 Chromium 缺少系统依赖库："
+    echo "$local_missing" | sed 's/^/      /'
+    if command -v sudo >/dev/null 2>&1; then
+      echo "  修复方式（二选一）："
+      echo "    1) sudo 安装系统库:  sudo \"$PYTHON_BIN\" -m playwright install-deps chromium"
+      echo "    2) 用 conda（无需 sudo）:  ./scripts/install.sh --conda-deps"
+    else
+      echo "  修复方式（无需 sudo，推荐）:  重新运行  ./scripts/install.sh --conda-deps"
+    fi
+    echo ""
+  fi
+fi
+
 # ---------- 3. 检测可选依赖 ----------
 echo "==> 检测可选依赖"
 MISSING_OPTS=()
@@ -170,6 +253,11 @@ fi
 
 # ---------- 5. 生成/更新 profile 配置 (cordis.patch.yml) ----------
 PATCH_FILE="$PROFILE_DIR/cordis.patch.yml"
+# 组装 ldLibraryPath 配置行（有 conda 依赖环境时才写入）
+LDLIB_LINE=""
+if [[ -n "$LDLIB_PATH" ]]; then
+  LDLIB_LINE="    ldLibraryPath: $LDLIB_PATH"
+fi
 if [[ -d "$PROFILE_DIR" ]]; then
   echo "==> 更新 $PATCH_FILE"
   # 若文件不存在则创建（空 profile 根）
@@ -177,7 +265,7 @@ if [[ -d "$PROFILE_DIR" ]]; then
     echo "# dsh-llm-web-bridge install.sh generated" > "$PATCH_FILE"
     echo "[]" >> "$PATCH_FILE"
   fi
-  # 如果已经配置过则跳过，否则追加
+  # 如果已经配置过则追加，否则追加
   if ! grep -q "id: web-llm-bridge" "$PATCH_FILE"; then
     # 若当前是空的 "[]"，先替换为合法 YAML 数组
     if grep -q '^\[\]$' "$PATCH_FILE"; then
@@ -190,10 +278,17 @@ if [[ -d "$PROFILE_DIR" ]]; then
     pythonBin: $PYTHON_BIN
     playwrightBrowsers: $PLAYWRIGHT_BROWSERS
     headless: $( [[ "$HEADLESS" == "headless" ]] && echo true || echo false )
+${LDLIB_LINE}
 PATCH
     echo "  已写入插件配置到 $PATCH_FILE"
   else
-    echo "  $PATCH_FILE 已包含 web-llm-bridge 配置，跳过（如需更新请手动编辑）"
+    # 已存在：若本次有 conda 依赖且配置里还没有 ldLibraryPath，则补一行
+    if [[ -n "$LDLIB_PATH" ]] && ! grep -q "ldLibraryPath:" "$PATCH_FILE"; then
+      sed -i "/^    headless:/a\\$LDLIB_LINE" "$PATCH_FILE"
+      echo "  已在 $PATCH_FILE 补写 ldLibraryPath"
+    else
+      echo "  $PATCH_FILE 已包含 web-llm-bridge 配置，跳过（如需更新请手动编辑）"
+    fi
   fi
 fi
 
@@ -206,6 +301,11 @@ echo " 下一步:"
 echo "   1. 确认 DSH profile 已注册插件：  dsh plugin --profile $PROFILE list | grep web-llm"
 echo "   2. 重启 DSH web：                cd ~/.dsh/profiles/$PROFILE && dsh web"
 echo "   3. 打开面板 → 配置 → 粘贴 Cookie（Gemini/ChatGPT/豆包）"
+if [[ -n "$LDLIB_PATH" ]]; then
+  echo ""
+  echo "  已启用 conda 系统库环境（无需 sudo）:"
+  echo "    ldLibraryPath: $LDLIB_PATH"
+fi
 echo ""
 echo " 数据目录: $BASE"
 echo " 配置文件: $HOME/.dsh/profiles/$PROFILE/cordis.patch.yml"

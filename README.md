@@ -48,6 +48,7 @@
 ./scripts/install.sh --base /data/llm-bridge      # 指定数据目录（默认 ~/dsh-web-llm-bridge-data）
 ./scripts/install.sh --profile web --headless     # 指定 DSH profile、无头模式
 ./scripts/install.sh --headless                   # 无头模式（不需要 Xvfb）
+./scripts/install.sh --conda-deps                 # 用 conda 装齐 Chromium 系统库（无需 sudo，见下）
 ./scripts/install.sh --help                       # 查看全部参数
 
 # 安装后检查环境：
@@ -55,6 +56,16 @@
 ```
 
 脚本会自动完成：创建 Python 虚拟环境 → 安装 Playwright → 下载 Chromium → 检测 Xvfb/字体 → 注册到 DSH profile → 生成配置。
+
+> **无 root / 无 apt 权限的机器**：系统常缺 Chromium 的系统库（libatk / libcups / libxkbcommon / libgbm / pango / cairo / X 相关等）。脚本会在装完 Chromium 后自动 `ldd` 检测，发现缺库时提示修复方式。推荐用 conda（无需 sudo）一键装齐：
+>
+> ```bash
+> ./scripts/install.sh --conda-deps
+> # 若 conda/mamba 不在 PATH，可指定：./scripts/install.sh --conda-deps /path/to/mamba
+> ```
+>
+> 它会创建一个 `dsh-llm-web-bridge-deps` conda 环境（conda-forge），把 Chromium 所需系统库全部装进去，并把该环境的 `lib/` 目录写成 `ldLibraryPath` 写入 profile 配置，守护进程启动 Chromium 时自动通过 `LD_LIBRARY_PATH` 注入——全程不需要 sudo。
+> 也可手动：`conda create -n dsh-llm-web-bridge-deps -c conda-forge atk at-spi2-atk at-spi2-core libcups libxkbcommon xorg-libxcomposite xorg-libxdamage xorg-libxfixes xorg-libxrandr libgbm pango cairo nss nspr alsa-lib expat`
 
 > **安装后仍需手动做两件事**：重启 DSH web、在面板粘贴 Cookie（见下方「认证」）。
 
