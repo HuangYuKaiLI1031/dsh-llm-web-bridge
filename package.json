@@ -12,6 +12,7 @@
   "files": [
     "lib",
     "daemon",
+    "!daemon/__pycache__",
     "docs",
     "cordis.patch.yml",
     "README.md"

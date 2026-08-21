@@ -1,0 +1,8 @@
+# npm pack exclusion — authoritative (takes precedence over .gitignore).
+# Keep the published artifact free of Python bytecode and local junk.
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+*.log
+.DS_Store
+Thumbs.db
